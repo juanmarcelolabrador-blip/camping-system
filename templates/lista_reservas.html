@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}Reservas - Sistema Camping{% endblock %}
+
+{% block content %}
+    <!-- === ℹ️ SECCIÓN INFORMACIÓN === -->
+    <div class="card">
+        <h3>🚀 Accesos Simultáneos Activos</h3>
+        <p>✅ Esta misma pantalla funciona en: PC, Celular, Tablet</p>
+        <p>🌐 <strong>URL única:</strong> http://tu-demo.ngrok.io</p>
+    </div>
+    
+    <!-- === ➕ FORMULARIO NUEVA RESERVA === -->
+    <div class="card">
+        <h3>➕ Nueva Reserva Rápida</h3>
+        <form action="/nueva_reserva" method="post">
+         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+    <select name="tipo" id="tipo_select" required onchange="actualizarCamposModulo()">
+        <option value="">Seleccionar módulo...</option>
+        <option value="quincho">🎪 Quincho</option>
+        <option value="casa_camping">🏠 Casa Camping</option>
+        <option value="fogones">🔥 Fogones</option>
+    </select>
+    
+    <input type="date" name="fecha" id="fecha_input" value="{{ hoy }}" required>
+</div>
+
+<!-- NUEVO: Campos para casa camping (inicialmente ocultos) -->
+<div id="campos_casa_camping" style="display: none; margin-bottom: 10px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+        <div>
+            <label>Fecha entrada:</label>
+            <input type="date" name="fecha_entrada" id="fecha_entrada" value="{{ hoy }}">
+        </div>
+        <div>
+            <label>Hora entrada:</label>
+            <input type="time" name="hora_entrada" id="hora_entrada" value="14:00">
+        </div>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div>
+            <label>Fecha salida:</label>
+            <input type="date" name="fecha_salida" id="fecha_salida" value="{{ hoy }}">
+        </div>
+        <div>
+            <label>Hora salida:</label>
+            <input type="time" name="hora_salida" id="hora_salida" value="10:00">
+        </div>
+    </div>
+</div>
+
+<!-- NUEVO: Campo turno (inicialmente oculto) -->
+<div id="campo_turno" style="display: none; margin-bottom: 10px;">
+    <label>🕒 Turno:</label>
+    <select name="turno" id="turno_select">
+        <option value="mañana">🌅 Mañana (10:00-17:00)</option>
+        <option value="tarde">🌇 Tarde (14:00-02:00)</option>
+    </select>
+</div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                <input type="text" name="cliente" placeholder="Nombre cliente" required>
+                <input type="text" name="telefono" placeholder="Teléfono" required>
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <label>
+                    <input type="radio" name="tipo_cliente" value="particular" checked> Particular (con cargo)
+                </label>
+                <label style="margin-left: 15px;">
+                    <input type="radio" name="tipo_cliente" value="municipal"> Municipal (sin cargo)
+                </label>
+            </div>
+            
+            <button type="submit" class="btn">Crear Reserva</button>
+        </form>
+    </div>
+    
+    <!-- === 📅 SECCIÓN RESERVAS EXISTENTES === -->
+    <div class="card">
+        <h3>📅 Reservas Existentes</h3>
+        
+        <!-- === 🔍 FILTROS DE BÚSQUEDA === -->
+        <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+            <form action="/" method="get">
+                <!-- Buscador de cliente -->
+                <div style="margin-bottom: 10px;">
+                    <input type="text" 
+                           name="buscar" 
+                           placeholder="🔍 Buscar por nombre de cliente..." 
+                           value="{{ request.args.get('buscar', '') }}"
+                           style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                </div>
+                
+                <!-- === 📅 FILTRO POR RANGO DE FECHAS === -->
+                <div style="margin-bottom: 10px;">
+                    <strong>Rango de fechas:</strong><br>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                        <input type="date" 
+                               name="fecha_desde" 
+                               value="{{ request.args.get('fecha_desde', '') }}"
+                               style="padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                        <span>hasta</span>
+                        <input type="date" 
+                               name="fecha_hasta" 
+                               value="{{ request.args.get('fecha_hasta', '') }}"
+                               style="padding: 6px; border: 1px solid #ddd; border-radius: 4px;">
+                    </div>
+                </div>
+                
+                <!-- Filtro por módulo -->
+                <div style="margin-bottom: 10px;">
+                    <strong>Filtrar por módulo:</strong><br>
+                    <label style="margin-right: 15px;">
+                        <input type="checkbox" name="modulo" value="quincho" 
+                               {% if 'quincho' in request.args.getlist('modulo') or not request.args.get('modulo') %}checked{% endif %}> 
+                        🎪 Quincho
+                    </label>
+                    <label style="margin-right: 15px;">
+                        <input type="checkbox" name="modulo" value="casa_camping" 
+                               {% if 'casa_camping' in request.args.getlist('modulo') or not request.args.get('modulo') %}checked{% endif %}>
+                        🏠 Casa
+                    </label>
+                    <label>
+                        <input type="checkbox" name="modulo" value="fogones" 
+                               {% if 'fogones' in request.args.getlist('modulo') or not request.args.get('modulo') %}checked{% endif %}>
+                        🔥 Fogones
+                    </label>
+                </div>
+                
+                <div style="margin-top: 10px;">
+                    <button type="submit" class="btn">Aplicar Filtros</button>
+                    {% if request.args.get('buscar') or request.args.get('modulo') or request.args.get('fecha_desde') %}
+                        <a href="/" class="btn btn-secondary">Limpiar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+        
+        <!-- === 📋 LISTA DE RESULTADOS === -->
+        {% if reservas %}
+            {% for reserva in reservas %}
+            <div class="card {{ reserva.tipo }} {{ reserva.tipo_cliente }}">
+                <strong>
+        {% if reserva.tipo == 'quincho' %}
+        🎪 QUINCHO [{{ reserva.turno.upper() }}]
+        {% elif reserva.tipo == 'casa_camping' %}
+        🏠 CASA CAMPING
+          {% if reserva.fecha_salida %}  {# ← NUEVO: Si tenemos fecha salida #}
+            ({{ reserva.formato_fecha_amigable() }} → {{ reserva.formato_fecha_salida_amigable() }})
+        {% endif %}
+    {% else %}
+        🔥 FOGONES
+        {% endif %}
+                </strong> | 
+        {{ reserva.formato_fecha_amigable() }} | 
+        {{ reserva.cliente }}<br>
+                <small>
+                    💰 {% if reserva.tipo_cliente == 'municipal' %}Gratis{% else %}${{ reserva.calcular_costo() }}{% endif %} | 
+                    👤 {{ reserva.usuario }} | 
+                    📅 {{ reserva.formato_timestamp_amigable() }}
+                </small>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="card" style="text-align: center; background: #fff3cd; border-left: 4px solid #ffc107;">
+                <h3>🔍 No se encontraron reservas</h3>
+                {% if request.args.get('buscar') %}
+                    <p>La búsqueda <strong>"{{ request.args.get('buscar') }}"</strong> no produjo resultados.</p>
+                {% else %}
+                    <p>No hay reservas registradas en el sistema.</p>
+                {% endif %}
+                <a href="/" class="btn btn-secondary">Ver todas las reservas</a>
+            </div>
+        {% endif %}
+    </div>
+    <!-- NUEVO: Campos para casa camping (inicialmente ocultos) -->
+<div id="campos_casa_camping" style="display: none; margin-bottom: 10px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div>
+            <label>Fecha entrada:</label>
+            <input type="date" name="fecha_entrada" id="fecha_entrada" value="{{ hoy }}">
+        </div>
+        <div>
+            <label>Fecha salida:</label>
+            <input type="date" name="fecha_salida" id="fecha_salida" value="{{ hoy }}">
+        </div>
+    </div>
+</div>
+
+    <script>
+    // Mostrar/ocultar campo de turno según tipo
+    function actualizarTurnos() {
+        const tipo = document.getElementById('tipo_select').value;
+        const campoTurno = document.getElementById('campo_turno');
+        
+        if (tipo === 'quincho') {
+            campoTurno.style.display = 'block';
+        } else {
+            campoTurno.style.display = 'none';
+        }
+    }
+
+    // Validación en tiempo real
+    document.getElementById('fecha_input').addEventListener('change', function() {
+        const fecha = this.value;
+        const tipo = document.getElementById('tipo_select').value;
+        const turnoSelect = document.getElementById('turno_select');
+        const turno = turnoSelect ? turnoSelect.value : 'completo';
+        
+        if (!fecha || !tipo) return;
+        
+        // Mostrar "verificando..."
+        this.style.border = '2px solid orange';
+        
+        // Consultar disponibilidad
+        fetch(`/verificar_disponibilidad?tipo=${tipo}&fecha=${fecha}&turno=${turno}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.disponible) {
+                    this.style.border = '2px solid green';
+                } else {
+                    this.style.border = '2px solid red';
+                    alert('❌ ' + data.mensaje);
+                    this.value = ''; // Limpiar fecha
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                this.style.border = '2px solid gray';
+            });
+    });
+
+    <!-- En el <script> que ya tenés, AGREGAR ESTA FUNCIÓN: -->
+
+    // Mostrar campos específicos según el tipo de módulo
+function actualizarCamposModulo() {
+    const tipo = document.getElementById('tipo_select').value;
+    const camposCasa = document.getElementById('campos_casa_camping');
+    const campoTurno = document.getElementById('campo_turno');
+    const campoFechaSimple = document.getElementById('fecha_input').parentElement;
+    
+    if (tipo === 'casa_camping') {
+        camposCasa.style.display = 'block';
+        campoTurno.style.display = 'none';
+        campoFechaSimple.style.display = 'none';
+    } else if (tipo === 'quincho') {
+        camposCasa.style.display = 'none';
+        campoTurno.style.display = 'block';
+        campoFechaSimple.style.display = 'block';
+    } else {
+        camposCasa.style.display = 'none';
+        campoTurno.style.display = 'none';
+        campoFechaSimple.style.display = 'block';
+    }
+}
+
+// Llamar a la función cuando cambie el select
+document.getElementById('tipo_select').addEventListener('change', actualizarCamposModulo);
+
+// Ejecutar al cargar la página para setear estado inicial
+actualizarCamposModulo();    
+
+function mostrarError(mensaje) {
+    // Crear o mostrar div de error
+    let errorDiv = document.getElementById('mensaje_error');
+    if (!errorDiv) {
+        errorDiv = document.createElement('div');
+        errorDiv.id = 'mensaje_error';
+        errorDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #ff4444; color: white; padding: 15px; border-radius: 5px; z-index: 1000; max-width: 400px;';
+        errorDiv.innerHTML = `
+            <h3 style="margin: 0 0 10px 0;">❌ OPERACIÓN BLOQUEADA</h3>
+            <p style="margin: 0;">${mensaje}</p>
+            <button onclick="this.parentElement.style.display=\'none\'" style="margin-top: 10px; background: white; color: #ff4444; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Cerrar</button>
+        `;
+        document.body.appendChild(errorDiv);
+    } else {
+        errorDiv.style.display = 'block';
+        errorDiv.querySelector('p').textContent = mensaje;
+    }
+    
+    // Auto-ocultar después de 8 segundos
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 8000);
+}
+
+// Y MODIFICAR la función de validación para usar mostrarError()
+document.getElementById('fecha_input').addEventListener('change', function() {
+    // ... tu código existente ...
+    
+    fetch(`/verificar_disponibilidad?tipo=${tipo}&fecha=${fecha}&turno=${turno}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.disponible) {
+                this.style.border = '2px solid green';
+            } else {
+                this.style.border = '2px solid red';
+                mostrarError(data.mensaje);  // ← Cambiar alert() por esto
+                this.value = '';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            this.style.border = '2px solid gray';
+        });
+});
+    </script>
+
+{% endblock %}
