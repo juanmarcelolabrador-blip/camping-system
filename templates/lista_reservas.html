@@ -8,6 +8,7 @@
         <h3>🚀 Accesos Simultáneos Activos</h3>
         <p>✅ Esta misma pantalla funciona en: PC, Celular, Tablet</p>
         <p>🌐 <strong>URL única:</strong> http://tu-demo.ngrok.io</p>
+        <p>✅ Juan Marcelo Labrador Systemas</p>
     </div>
     
     <!-- === ➕ FORMULARIO NUEVA RESERVA === -->
@@ -21,8 +22,8 @@
         <option value="casa_camping">🏠 Casa Camping</option>
         <option value="fogones">🔥 Fogones</option>
     </select>
-    
-    <input type="date" name="fecha" id="fecha_input" value="{{ hoy }}" required>
+    <input type="date" name="fecha" id="fecha_input" value="{{ hoy }}" min="{{ hoy }}" required>
+<!--<input type="date" name="fecha" id="fecha_input" value="{{ hoy }}" required>-->
 </div>
 
 <!-- NUEVO: Campos para casa camping (inicialmente ocultos) -->
@@ -56,6 +57,7 @@
     <select name="turno" id="turno_select">
         <option value="mañana">🌅 Mañana (10:00-17:00)</option>
         <option value="tarde">🌇 Tarde (14:00-02:00)</option>
+        <option value="completo">🌅🌇 Día Completo</option>
     </select>
 </div>
             
@@ -129,12 +131,33 @@
                     </label>
                 </div>
                 
-                <div style="margin-top: 10px;">
-                    <button type="submit" class="btn">Aplicar Filtros</button>
-                    {% if request.args.get('buscar') or request.args.get('modulo') or request.args.get('fecha_desde') %}
-                        <a href="/" class="btn btn-secondary">Limpiar</a>
-                    {% endif %}
-                </div>
+                <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <!-- Botón Aplicar Filtros -->
+                <button type="submit" 
+                        style="background: #2E8B57; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; font-family: Arial; font-size: 14px;">
+                    🔍 Aplicar Filtros
+                </button>
+                
+                <!-- Botón Exportar Reporte -->
+                <a href="/exportar_reporte?{{ request.args.get('buscar') and '?' + request.query_string.decode() or '' }}" 
+                style="background: #107C10; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; font-family: Arial; font-size: 14px;">
+                    📊 Exportar Reporte
+                </a>
+                
+                <!-- Botón Dashboard -->
+                <a href="/dashboard" 
+                style="background: #8A2BE2; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; font-family: Arial; font-size: 14px;">
+                    📈 Ver Dashboard
+                </a>
+                
+                <!-- Botón Limpiar (condicional) -->
+                {% if request.args.get('buscar') or request.args.get('modulo') or request.args.get('fecha_desde') %}
+                    <a href="/" 
+                    style="background: #6c757d; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; font-family: Arial; font-size: 14px;">
+                        🗑️ Limpiar
+                    </a>
+                {% endif %}
+</div>
             </form>
         </div>
         
@@ -142,24 +165,28 @@
         {% if reservas %}
             {% for reserva in reservas %}
             <div class="card {{ reserva.tipo }} {{ reserva.tipo_cliente }}">
-                <strong>
-        {% if reserva.tipo == 'quincho' %}
-        🎪 QUINCHO [{{ reserva.turno.upper() }}]
-        {% elif reserva.tipo == 'casa_camping' %}
-        🏠 CASA CAMPING
-          {% if reserva.fecha_salida %}  {# ← NUEVO: Si tenemos fecha salida #}
-            ({{ reserva.formato_fecha_amigable() }} → {{ reserva.formato_fecha_salida_amigable() }})
-        {% endif %}
-    {% else %}
-        🔥 FOGONES
-        {% endif %}
-                </strong> | 
+            <strong>
+                {% if reserva.tipo == 'quincho' %}
+                    🎪 QUINCHO [{{ reserva.turno.upper() }}]
+                {% elif reserva.tipo == 'casa_camping' %}
+                    🏠 CASA CAMPING 
+                    {% if reserva.fecha_entrada and reserva.fecha_salida %}
+                        [{{ reserva.fecha_entrada[8:10] }}/{{ reserva.fecha_entrada[5:7] }} {{ reserva.hora_entrada }} → {{ reserva.fecha_salida[8:10] }}/{{ reserva.fecha_salida[5:7] }} {{ reserva.hora_salida }}]
+                    {% endif %}
+                {% elif reserva.tipo == 'fogones' %}
+                    🔥 FOGONES
+                {% endif %}
+            </strong> | 
         {{ reserva.formato_fecha_amigable() }} | 
         {{ reserva.cliente }}<br>
                 <small>
                     💰 {% if reserva.tipo_cliente == 'municipal' %}Gratis{% else %}${{ reserva.calcular_costo() }}{% endif %} | 
                     👤 {{ reserva.usuario }} | 
                     📅 {{ reserva.formato_timestamp_amigable() }}
+                     <!-- 🆕 AGREGÁ ESTA LÍNEA NUEVA boton de eliminar: -->
+                    | <a href="/eliminar_reserva/{{ reserva.id }}" 
+                        onclick="return confirm('¿Seguro que querés eliminar esta reserva?')"
+                        style="color: red; text-decoration: none;">🗑️ Eliminar</a> 
                 </small>
             </div>
             {% endfor %}
@@ -306,6 +333,88 @@ document.getElementById('fecha_input').addEventListener('change', function() {
             this.style.border = '2px solid gray';
         });
 });
+
+// comienzo de codigo para que el calendario de campo fecha_salida sea cercano al calendario de campo fecha_entrada
+// Sincronizar fechas de casa camping
+document.getElementById('fecha_entrada').addEventListener('change', function() {
+    const fechaEntrada = this.value;
+    const fechaSalidaInput = document.getElementById('fecha_salida');
+    
+    if (fechaEntrada) {
+        // Calcular fecha salida por defecto (entrada + 1 día)
+        const fecha = new Date(fechaEntrada);
+        fecha.setDate(fecha.getDate() + 1);
+        
+        // Formatear a YYYY-MM-DD
+        const fechaSalidaDefault = fecha.toISOString().split('T')[0];
+        
+        // Posicionar el calendario en esa fecha
+        fechaSalidaInput.min = fechaEntrada; // No permitir fechas anteriores
+        fechaSalidaInput.value = fechaSalidaDefault;
+    }
+});
+
+// También para la hora_salida - sugerir hora por defecto
+document.getElementById('hora_entrada').addEventListener('change', function() {
+    const horaEntrada = this.value;
+    const horaSalidaInput = document.getElementById('hora_salida');
+    
+    if (horaEntrada && !horaSalidaInput.value) {
+        // Sugerir hora salida por defecto (10:00 AM)
+        horaSalidaInput.value = '10:00';
+    }
+});
+
+
+// fin de codigo calendario fecha salida
+
+// Validar que salida no sea anterior a entrada
+document.getElementById('fecha_salida').addEventListener('change', function() {
+    const fechaEntrada = document.getElementById('fecha_entrada').value;
+    const fechaSalida = this.value;
+    
+    if (fechaEntrada && fechaSalida && fechaSalida < fechaEntrada) {
+        alert('❌ La fecha de salida no puede ser anterior a la de entrada');
+        this.value = ''; // Limpiar campo
+    }
+});
+    
     </script>
+<!-- 🆕 AQUÍ PEGÁ EL CÓDIGO NUEVO -->
+    <script>
+// Validar quincho en tiempo real
+document.addEventListener('DOMContentLoaded', function() {
+    const turnoSelect = document.getElementById('turno_select');
+    if (turnoSelect) {
+        turnoSelect.addEventListener('change', function() {
+            const tipo = document.getElementById('tipo_select').value;
+            const fecha = document.getElementById('fecha_input').value;
+            const turno = this.value;
+            
+            if (tipo === 'quincho' && fecha) {
+                // Mostrar "verificando..."
+                this.style.border = '2px solid orange';
+                
+                fetch(`/verificar_disponibilidad?tipo=${tipo}&fecha=${fecha}&turno=${turno}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.disponible) {
+                            this.style.border = '2px solid green';
+                        } else {
+                            this.style.border = '2px solid red';
+                            mostrarError(data.mensaje);
+                            this.value = 'mañana'; // Resetear a default
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        this.style.border = '2px solid gray';
+                    });
+            }
+        });
+    }
+});
+    </script>
+<!-- 🆕 FIN DEL CÓDIGO NUEVO -->
 
 {% endblock %}

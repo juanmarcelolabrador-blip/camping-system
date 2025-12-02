@@ -4,7 +4,8 @@
 class Reserva:
     """Representa una reserva en el sistema - como un registro en FoxPRO"""
     
-    def __init__(self, id, tipo, fecha, turno, cliente, telefono, tipo_cliente, usuario, timestamp):
+    def __init__(self, id, tipo, fecha, turno, cliente, telefono, tipo_cliente, usuario, timestamp,
+                 fecha_entrada=None, hora_entrada=None, fecha_salida=None, hora_salida=None):
         self.id = id
         self.tipo = tipo
         self.fecha = fecha
@@ -14,6 +15,10 @@ class Reserva:
         self.tipo_cliente = tipo_cliente   # 🆕 NUEVO
         self.usuario = usuario
         self.timestamp = timestamp
+        self.fecha_entrada = fecha_entrada
+        self.hora_entrada = hora_entrada
+        self.fecha_salida = fecha_salida
+        self.hora_salida = hora_salida
 
     def formato_fecha_salida_amigable(self):
         """Convierte fecha_salida YYYY-MM-DD a DD/MM/AA"""

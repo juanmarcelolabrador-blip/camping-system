@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🏕️ Dashboard - Camping Municipal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial; margin: 20px; background: #f5f5f5; }
+        .header { background: linear-gradient(45deg, #2E8B57, #228B22); color: white; padding: 20px; border-radius: 10px; }
+        .card { background: white; padding: 15px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { background: #2E8B57; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-secondary { background: #6c757d; }
+        
+        /* ESTILOS DASHBOARD */
+        .card-metric { 
+            background: linear-gradient(45deg, #2E8B57, #228B22); 
+            color: white; 
+            border-radius: 10px; 
+            padding: 20px;
+            margin: 10px;
+            text-align: center;
+        }
+        .kpi-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .filters-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- === 🏠 HEADER IDÉNTICO AL SISTEMA ACTUAL === -->
+    <div class="header" style="display: flex; align-items: center; justify-content: space-between; padding: 15px 20px;">
+        <div style="display: flex; align-items: center;">
+            <img src="{{ url_for('static', filename='images/logo.jpeg') }}" 
+                 style="height: 50px; margin-right: 15px; border-radius: 5px;">
+            <div>
+                <h1 style="margin: 0; font-size: 1.4em;">📊 Dashboard Camping Municipal</h1>
+                <p style="margin: 0; opacity: 0.9; font-size: 0.9em; padding-left: 40px;">Métricas y Estadísticas</p>
+            </div>
+        </div>
+        
+        {% if session.usuario %}
+        <div style="text-align: right; color: white;">
+            <p style="margin: 0;">👤 {{ session.usuario }}</p>
+            <a href="/logout" style="color: white; text-decoration: underline;">Salir</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- === 🔍 FILTROS === -->
+    <div class="filters-section">
+        <h3>🔍 Filtros</h3>
+        <form id="filtersForm" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: end;">
+            <div>
+                <label>Desde:</label>
+                <input type="date" class="form-control" name="fecha_desde" id="fecha_desde" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div>
+                <label>Hasta:</label>
+                <input type="date" class="form-control" name="fecha_hasta" id="fecha_hasta" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            <div>
+                <label>Módulo:</label>
+                <select name="modulo" id="modulo" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="">Todos los módulos</option>
+                    <option value="casa">Casa Camping</option>
+                    <option value="quincho">Quincho</option>
+                    <option value="fogon">Fogón</option>
+                </select>
+            </div>
+            <div>
+                <button type="button" class="btn" onclick="aplicarFiltros()" style="width: 100%;">
+                    📊 Aplicar
+                </button>
+            </div>
+        </form>
+        
+        <!-- BOTONES ADICIONALES -->
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn" onclick="exportarDashboard()" style="background: #228B22;">
+                📥 Exportar Reporte
+            </button>
+            <a href="/" class="btn" style="background: #6c757d; text-decoration: none; display: inline-block;">
+                ← Volver a Reservas
+            </a>
+        </div>
+    </div>
+
+    <!-- === 📊 MÉTRICAS PRINCIPALES === -->
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0;">
+        <div class="card-metric">
+            <h4>📅 Reservas Totales</h4>
+            <div class="kpi-number" id="kpi-reservas">0</div>
+            <small>Período seleccionado</small>
+        </div>
+        <div class="card-metric">
+            <h4>💰 Ingresos</h4>
+            <div class="kpi-number" id="kpi-ingresos">$0</div>
+            <small>Proyectados</small>
+        </div>
+        <div class="card-metric">
+            <h4>📈 Ocupación</h4>
+            <div class="kpi-number" id="kpi-ocupacion">0%</div>
+            <small>Promedio</small>
+        </div>
+        <div class="card-metric">
+            <h4>⭐ Popular</h4>
+            <div class="kpi-number" id="kpi-popular">-</div>
+            <small>Módulo más solicitado</small>
+        </div>
+    </div>
+
+    <!-- === 📈 GRÁFICOS === -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="chart-container">
+            <h4>📈 Reservas por Mes</h4>
+            <canvas id="chartReservasMes" height="250"></canvas>
+        </div>
+        <div class="chart-container">
+            <h4>🎯 Distribución por Módulo</h4>
+            <canvas id="chartDistribucionModulo" height="250"></canvas>
+        </div>
+    </div>
+
+    <!-- === 📞 FOOTER IDÉNTICO === -->
+    <div class="card" style="text-align: center; margin-top: 20px; background: #e8f4fd;">
+        <p style="margin: 0;">📞 Contacto: camping@radatilly.gov.ar | ☎️ 297-4452689</p>
+    </div>
+
+    <script>
+        function aplicarFiltros() {
+    const fecha_desde = document.getElementById('fecha_desde').value;
+    const fecha_hasta = document.getElementById('fecha_hasta').value;
+    const modulo = document.getElementById('modulo').value;
+    
+    console.log('🎯 Aplicando filtros:', {fecha_desde, fecha_hasta, modulo});
+    
+    // Verificar que los elementos existen
+    const kpiReservas = document.getElementById('kpi-reservas');
+    const kpiIngresos = document.getElementById('kpi-ingresos'); 
+    const kpiOcupacion = document.getElementById('kpi-ocupacion');
+    const kpiPopular = document.getElementById('kpi-popular');
+    
+    if (!kpiReservas) {
+        console.error('❌ No se encuentra kpi-reservas');
+        alert('Error: No se encuentra elemento kpi-reservas');
+        return;
+    }
+    
+    console.log('✅ Elementos KPIs encontrados');
+    
+    // Mostrar loading
+    kpiReservas.textContent = '...';
+    kpiIngresos.textContent = '...';
+    kpiOcupacion.textContent = '...';
+    kpiPopular.textContent = '...';
+    
+    // Construir URL de forma segura
+    let url = '/api/dashboard_data?';
+    if (fecha_desde) url += `fecha_desde=${fecha_desde}&`;
+    if (fecha_hasta) url += `fecha_hasta=${fecha_hasta}&`;
+    if (modulo) url += `modulo=${modulo}&`;
+    
+    console.log('📡 Llamando a:', url);
+    
+    // Llamar al backend
+    fetch(url)
+        .then(response => {
+            console.log('📨 Respuesta recibida, status:', response.status);
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('📊 Datos recibidos:', data);
+            
+            // Actualizar los 4 numeritos (KPIs)
+            kpiReservas.textContent = data.reservas_totales || 0;
+            kpiIngresos.textContent = '$' + (data.ingresos || 0).toLocaleString();
+            kpiOcupacion.textContent = data.ocupacion || '0%';
+            kpiPopular.textContent = data.modulo_popular || '-';
+            
+            alert('✅ Filtros aplicados correctamente');
+        })
+        .catch(error => {
+            console.error('❌ Error completo:', error);
+            alert('❌ Error al cargar datos: ' + error.message);
+            
+            // Restaurar valores por defecto en caso de error
+            kpiReservas.textContent = '0';
+            kpiIngresos.textContent = '$0';
+            kpiOcupacion.textContent = '0%';
+            kpiPopular.textContent = '-';
+        });
+}
+
+        function exportarDashboard() {
+            alert('📊 Exportando reporte ejecutivo...');
+        }
+
+        // Gráficos de ejemplo
+        document.addEventListener('DOMContentLoaded', function() {
+            // Gráfico de reservas por mes
+            new Chart(document.getElementById('chartReservasMes'), {
+                type: 'line',
+                data: {
+                    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Reservas',
+                        data: [12, 19, 15, 25, 22, 30],
+                        borderColor: '#2E8B57',
+                        backgroundColor: 'rgba(46, 139, 87, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                }
+            });
+
+            // Gráfico de distribución
+            new Chart(document.getElementById('chartDistribucionModulo'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Casa Camping', 'Quincho', 'Fogón'],
+                    datasets: [{
+                        data: [45, 30, 25],
+                        backgroundColor: ['#FFD700', '#8A2BE2', '#228B22']
+                    }]
+                }
+            });
+        });
+    </script>
+</body>
+</html>
