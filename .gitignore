@@ -1,0 +1,21 @@
+# "Desornamentación" - Archivos temporales y generados
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Base de datos local (cada developer tiene la suya)
+*.db
+*.sqlite3
+
+# Entorno virtual de Python
+venv/
+env/
+.venv/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
